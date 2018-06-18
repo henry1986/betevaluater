@@ -10,14 +10,18 @@
 
 package org.daiv
 
+import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStreamWriter
+import java.nio.charset.Charset
 
 class Evaluater {
 
 }
 
 val landShorts = mapOf("Rußland" to "RU",
-                       "Saudi" to "SA",
+                       "Saudi-Arabien" to "SA",
                        "Ägypten" to "EGY",
                        "Uruguay" to "URU",
                        "Marokko" to "MAR",
@@ -28,111 +32,14 @@ val landShorts = mapOf("Rußland" to "RU",
                        "Australien" to "AUS",
                        "Argentinien" to "ARG",
                        "Island" to "ISL",
-                       "Peru" to "PER", "Dänemark" to "DEN", "Kroatien" to "CRO", "Nigeria" to "NIG")
-
-data class Team(val name: String) {
-    val shortName: String = landShorts[name] ?: name
-
-    override
-    fun toString(): String {
-        return "$shortName"
-    }
-}
-
-data class Match(val team1: Team, val team2: Team) {
-    override fun toString(): String {
-        return "$team1 - $team2"
-    }
-
-    companion object {
-        fun create(string: String): Match {
-            val split = string.split("-")
-            return Match(Team(split[0].trim()), Team(split[1].trim()))
-        }
-    }
-}
-
-data class Bet(val date: String, val match: Match, val bet: Result) {
-    override fun toString(): String {
-        return bet.toString()
-    }
-
-    private fun calculatePoints(ref: Result): Int {
-        val diffHit = ref.getDiff() == bet.getDiff()
-        return when {
-            ref.home == bet.home && diffHit -> 3
-            diffHit -> 2
-            else -> 1
-        }
-    }
-
-    fun points(ref: Result): Points {
-        return Points(this, if (bet.isSame(ref)) calculatePoints(ref) else 0)
-    }
-}
-
-data class Points(val bet: Bet, val points: Int) {
-    override fun toString(): String {
-        return "${bet.bet} ->     $points"
-    }
-}
-
-data class Result(val home: Int, val remote: Int) {
-    override fun toString(): String {
-        return " $home : $remote "
-    }
-
-    fun isHomeWin() = home > remote
-    fun isTie() = home == remote
-    fun isRemoteWin() = home < remote
-
-    fun isSame(result: Result): Boolean {
-        return listOf.none { this.it() != result.it() }
-    }
-
-    fun getDiff() = Math.abs(home - remote)
-
-    companion object {
-        val listOf: List<Result.() -> Boolean> = listOf(Result::isHomeWin, Result::isRemoteWin, Result::isTie)
-        private fun getNumber(string: String): Int {
-            if (string == "") {
-                return Int.MIN_VALUE
-            }
-            return Integer.valueOf(string.trim())
-        }
-
-        private fun get(split: List<String>): Result {
-            return Result(getNumber(split[0]), getNumber(split[1]))
-        }
-
-        private fun transform(string: String, sign: List<String>): Result {
-            return sign.find { string.contains(it) }?.let {
-                get(string.split(it))
-            } ?: run {
-                throw RuntimeException("did not find a matching pattern for: $string")
-            }
-        }
-
-        fun create(string: String): Result {
-            return transform(string, listOf(":", "-", "–"))
-        }
-    }
-}
-
-data class Player(val name: String, val allPoints: Int, val bets: Map<Match, Bet>, val pointsPerBet: List<Points>) {
-    fun add(matchBet: Bet): Player {
-        return Player(name, allPoints, bets + (matchBet.match to matchBet), pointsPerBet)
-    }
-
-    fun compareResults(player: Player): Player {
-        val points = player.bets.map { bets[it.key]!!.points(it.value.bet) }
-        return Player(name, points.map { it.points }.sum(), bets, points)
-    }
-
-    override fun toString(): String {
-        return "$name: $allPoints $pointsPerBet"
-    }
-}
+                       "Peru" to "PER",
+                       "Dänemark" to "DEN",
+                       "Kroatien" to "CRO",
+                       "Nigeria" to "NIG",
+                       "Deutschland" to "GER",
+                       "Costa Rica" to "CRC",
+                       "Serbien" to "SRB",
+                       "Mexiko" to "MEX")
 
 
 fun main(args: Array<String>) {
@@ -142,56 +49,88 @@ fun main(args: Array<String>) {
         .useLines {
             list = it.toList()
         }
-    val payers = list.first()
+    val users = list.first()
         .trim(',')
         .split(",")
         .asSequence()
         .filter { it != "" }
-        .map { Player(it, 0, mapOf(), listOf()) }
+        .map { User(it) }
         .toList()
-//    println(payers)
+
+    //    println(payers)
+    data class DateMatch(val date: String, val match: Match)
+
+    var dateMatchList: List<DateMatch> = listOf()
     val toList = list.drop(2)
-        .dropLast(33)
+        .dropLast(1)
         .flatMap {
             val toMutableList = it.split(",")
                 .toMutableList()
 //            toMutableList.removeAt(3)
-            val filter = toMutableList
+            val filter = (0..(toMutableList.size - 1))
                 .asSequence()
-                .filter { it != "" }
+//                .filter { it < 5 || toMutableList[it] != "" }
+                .map { toMutableList[it] }
                 .toList()
 //            filter.forEach { println(it) }
             val date = filter[0]
-            val match = "${filter[1]} - ${filter[2]}"
+            val match = Match(date, "", Team(filter[1]), Team(filter[2]))
 //            println(match)
+            dateMatchList += DateMatch(date, match)
             val bets = filter.drop(3)
-            val toList = (0..(payers.size - 1)).map {
-                payers[it].add(Bet(date,
-                                   Match.create(match),
-                                   Result.create(bets[it])))
+
+            val toList = (0..(users.size - 1)).map {
+                val betIt = if(it == 0) 0 else it * 2 - 1
+                BetData(BetKey(match, users[it]),
+                        if (it < users.size) Result.create(bets[betIt]) else Result.none(), Points.NONE)
             }
                 .toList()
-//            toList.forEach { println(it) }
             toList
         }
         .toList()
-
-    val map1 = payers.map { player ->
-        val toList1 = toList.filter { it.name == player.name }
-            .flatMap {
-                val map = it.bets.toList()
-                    .map { it.second }
-                    .filter { it.bet.home != Int.MIN_VALUE }
-                map
-            }
-            .associateBy { it.match }
-        Player(player.name, player.allPoints, toList1, player.pointsPerBet)
+        .filter { it.result != Result.NONE }
+    val (results, bets) = toList.partition { it.betKey.user == User.RESULT }
+//    results.forEach { println(it) }
+//    bets.forEach { println(it) }
+    val evaluatedBets = bets.map {
+        it.evaluate(results.find { r -> it.betKey.match == r.betKey.match }?.result
+                            ?: Result.NONE)
     }
-    val results = map1.first()
-    val playerWithPoints = map1.drop(1)
-        .map { player -> player.compareResults(results) }
-    println(results.bets)
-    playerWithPoints.forEach { println(it) }
-//    toList
-//        .forEach { println(it) }
+    val d = BetDatabase(DatabaseWrapper.create("bet.db"))
+    d.open()
+    d.store(results)
+    d.store(evaluatedBets)
+    d.close()
+    val plainUsers = users.filter { it != User.RESULT }
+    File("/home/mheinrich/Downloads/wm_withPoints.csv").printWriter(Charset.defaultCharset())
+        .use { writer ->
+            writer.print(",,,,")
+            plainUsers.forEach {
+                writer.print("${it.name},,")
+            }
+            writer.println()
+            writer.println(list[1])
+            (0..(dateMatchList.size - 1)).forEach { i ->
+                val (date, match) = dateMatchList[i]
+                val result = results.find { it.betKey.match == match }?.result ?: Result.NONE
+                writer.print("$date, ${match.team1},${match.team2}, $result")
+                plainUsers.forEach { user ->
+                    val find = evaluatedBets.find { it.betKey.user == user && it.betKey.match == match }
+                    writer.print(",${find?.result ?: Result.NONE}, ${find?.points ?: Points.NONE}")
+                }
+                writer.println()
+//            print(playerWithPoints[0].bets.g.date)
+            }
+            writer.print("Zwischensumme aus der Gruppenphase: ,,")
+            plainUsers.forEach { user ->
+                val sum = evaluatedBets.filter { it.betKey.user == user }
+                    .map { it.points }
+                    .filter { it != Points.NONE }
+                    .map(Points::int)
+                    .sum()
+                writer.print(",,$sum")
+            }
+
+            writer.println()
+        }
 }
