@@ -22,14 +22,10 @@ class BetDatabase(databaseWrapper: DatabaseWrapper) : SimpleDatabase by database
     }
 
     fun store(list: List<BetData>) {
-
         list.forEach {
             if (table.exists(it.betKey)) {
                 if (it.result != Result.NONE) {
                     table.update(it.betKey, BetData::result.name, it.result)
-                }
-                if (it.points != Points.NONE) {
-                    table.update(it.betKey, BetData::points.name, it.points)
                 }
             } else {
                 table.insert(it)

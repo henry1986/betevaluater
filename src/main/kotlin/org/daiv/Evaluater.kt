@@ -16,11 +16,8 @@ import java.io.FileOutputStream
 import java.io.OutputStreamWriter
 import java.nio.charset.Charset
 
-class Evaluater {
 
-}
-
-val landShorts = mapOf("Rußland" to "RU",
+val landShorts = mapOf("Russland" to "RU",
                        "Saudi-Arabien" to "SA",
                        "Ägypten" to "EGY",
                        "Uruguay" to "URU",
@@ -42,8 +39,19 @@ val landShorts = mapOf("Rußland" to "RU",
                        "Mexiko" to "MEX")
 
 
+fun getBets(toList: List<BetData>): Pair<List<BetData>, List<PointData>> {
+    val (results, bets) = toList.partition { it.betKey.user == User.RESULT }
+//    results.forEach { println(it) }
+//    bets.forEach { println(it) }
+    val evaluatedBets = bets.map {
+        PointData.create(it, results.find { r -> it.betKey.match.equalsSameDayAndTeam(r.betKey.match) }?.result
+                ?: Result.NONE)
+    }
+    return Pair(results, evaluatedBets)
+}
+
 fun main(args: Array<String>) {
-    val inputstream = File("/home/mheinrich/Downloads/gruppenphase.csv").inputStream()
+    val inputstream = File("/home/mheinrich/Downloads/gruppenphase2.csv").inputStream()
     var list: List<String> = listOf()
     val use = inputstream.bufferedReader()
         .useLines {
@@ -80,27 +88,20 @@ fun main(args: Array<String>) {
             val bets = filter.drop(3)
 
             val toList = (0..(users.size - 1)).map {
-                val betIt = if(it == 0) 0 else it * 2 - 1
+                val betIt = if (it == 0) 0 else it * 2 - 1
                 BetData(BetKey(match, users[it]),
-                        if (it < users.size) Result.create(bets[betIt]) else Result.none(), Points.NONE)
+                        if (it < users.size) Result.create(bets[betIt]) else Result.none())
             }
                 .toList()
             toList
         }
         .toList()
         .filter { it.result != Result.NONE }
-    val (results, bets) = toList.partition { it.betKey.user == User.RESULT }
-//    results.forEach { println(it) }
-//    bets.forEach { println(it) }
-    val evaluatedBets = bets.map {
-        it.evaluate(results.find { r -> it.betKey.match == r.betKey.match }?.result
-                            ?: Result.NONE)
-    }
     val d = BetDatabase(DatabaseWrapper.create("bet.db"))
     d.open()
-    d.store(results)
-    d.store(evaluatedBets)
+    d.store(toList)
     d.close()
+    val (results, evaluatedBets) = getBets(toList)
     val plainUsers = users.filter { it != User.RESULT }
     File("/home/mheinrich/Downloads/wm_withPoints.csv").printWriter(Charset.defaultCharset())
         .use { writer ->
@@ -115,15 +116,15 @@ fun main(args: Array<String>) {
                 val result = results.find { it.betKey.match == match }?.result ?: Result.NONE
                 writer.print("$date, ${match.team1},${match.team2}, $result")
                 plainUsers.forEach { user ->
-                    val find = evaluatedBets.find { it.betKey.user == user && it.betKey.match == match }
-                    writer.print(",${find?.result ?: Result.NONE}, ${find?.points ?: Points.NONE}")
+                    val find = evaluatedBets.find { it.betData.betKey.user == user && it.betData.betKey.match == match }
+                    writer.print(",${find?.betData?.result ?: Result.NONE}, ${find?.points ?: Points.NONE}")
                 }
                 writer.println()
 //            print(playerWithPoints[0].bets.g.date)
             }
             writer.print("Zwischensumme aus der Gruppenphase: ,,")
             plainUsers.forEach { user ->
-                val sum = evaluatedBets.filter { it.betKey.user == user }
+                val sum = evaluatedBets.filter { it.betData.betKey.user == user }
                     .map { it.points }
                     .filter { it != Points.NONE }
                     .map(Points::int)

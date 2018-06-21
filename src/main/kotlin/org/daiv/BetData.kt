@@ -24,6 +24,10 @@ data class Match(val date: String, val header: String, val team1: Team, val team
         return "$team1 - $team2"
     }
 
+    fun equalsSameDayAndTeam(other:Match):Boolean{
+        return other.team1 == team1 && other.team2 == team2
+    }
+
     companion object {
         fun create(date: String, header: String, string: String): Match {
             val split = string.split("-")
@@ -107,24 +111,48 @@ data class Points(val int: Int) {
 
 data class BetKey(val match: Match, val user: User)
 
+data class PointData(val betData: BetData, val points: Points){
 
-data class BetData(val betKey: BetKey, val result: Result, val points: Points) {
-    private fun calculatePoints(bet: Result, ref: Result): Int {
-        if (bet.isSame(ref)) {
-            val diffHit = ref.getDiff() == bet.getDiff()
-            return when {
-                ref.home == bet.home && diffHit -> 3
-                diffHit -> 2
-                else -> 1
+    companion object {
+        private fun calculatePoints(bet: Result, ref: Result): Int {
+            if (bet.isSame(ref)) {
+                val diffHit = ref.getDiff() == bet.getDiff()
+                return when {
+                    ref.home == bet.home && diffHit -> 3
+                    diffHit -> 2
+                    else -> 1
+                }
             }
+            return 0
         }
-        return 0
-    }
 
-    fun evaluate(result: Result): BetData {
-        if (result == Result.NONE) {
-            return this
+        fun create(betData: BetData, result: Result): PointData {
+            if (result == Result.NONE) {
+                return PointData(betData, Points.NONE)
+            }
+            return PointData(betData, Points(calculatePoints(betData.result, result)))
         }
-        return BetData(betKey, this.result, Points(calculatePoints(this.result, result)))
     }
+}
+
+
+data class BetData(val betKey: BetKey, val result: Result) {
+//    private fun calculatePoints(bet: Result, ref: Result): Int {
+//        if (bet.isSame(ref)) {
+//            val diffHit = ref.getDiff() == bet.getDiff()
+//            return when {
+//                ref.home == bet.home && diffHit -> 3
+//                diffHit -> 2
+//                else -> 1
+//            }
+//        }
+//        return 0
+//    }
+//
+//    fun evaluate(result: Result): BetData {
+//        if (result == Result.NONE) {
+//            return this
+//        }
+//        return BetData(betKey, this.result, Points(calculatePoints(this.result, result)))
+//    }
 }

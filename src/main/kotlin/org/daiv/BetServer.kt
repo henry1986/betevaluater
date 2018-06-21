@@ -16,12 +16,21 @@ import io.ktor.routing.get
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import kotlinx.coroutines.experimental.launch
 import kotlinx.html.*
+import org.daiv.bet.getResults
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
+import java.text.SimpleDateFormat
+
+fun toLong(string: String): Long {
+    val parse = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").parse(string)
+    return parse.time
+}
 
 fun main(args: Array<String>) {
     val d = BetDatabase(DatabaseWrapper.create("bet.db"))
     d.open()
+    launch { getResults(d) }
     val server = embeddedServer(Netty, port = 8080) {
         routing {
             get("/") {
@@ -50,9 +59,13 @@ table, td, th {
                             table {
 
                                 val users = d.getUsers()
+                                    .filter { it != User.RESULT }
                                 val readAll = d.readAll()
+                                val (res, bets) = getBets(readAll)
+                                val results = res.sortedWith(compareBy { toLong(it.betKey.match.date) })
                                 tr {
                                     td { +"Begegnung" }
+                                    td { +"Ergebnis" }
                                     users.forEach {
                                         td { +it.name }
                                         td {}
@@ -60,32 +73,36 @@ table, td, th {
                                 }
                                 tr {
                                     td { }
+                                    td { }
                                     users.forEach {
                                         td { +"Tipp" }
                                         td { +"Punkte" }
                                     }
                                 }
-                                val matches = d.getMatches()
-                                matches.forEach { match ->
+                                results.forEach { result ->
                                     tr {
+                                        val match = result.betKey.match
                                         td { +match.toString() }
+                                        td { +result.result.toString() }
                                         users.forEach { user ->
-                                            readAll
-                                                .find { bet -> bet.betKey.user == user && match == bet.betKey.match }?.let {
-                                                    td { +"${it.result} " }
+                                            bets.find { bet ->
+                                                bet.betData.betKey.user == user && match.equalsSameDayAndTeam(bet.betData.betKey.match)
+                                            }?.let {
+                                                td { +"${it.betData.result} " }
+                                                if (it.betData.betKey.user != User.RESULT) {
                                                     td { +"${it.points} " }
-
-                                                } ?: run {
+                                                }
+                                            } ?: run {
                                                 td { }
                                                 td { }
                                             }
                                         }
                                     }
                                 }
-                                tr{
+                                tr {
                                     td { +"Zwischenstand: " }
                                     users.forEach { user ->
-                                        val sum = readAll.filter { it.betKey.user == user }
+                                        val sum = bets.filter { it.betData.betKey.user == user }
                                             .map { it.points }
                                             .filter { it != Points.NONE }
                                             .map(Points::int)
