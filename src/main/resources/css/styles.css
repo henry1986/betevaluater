@@ -1,0 +1,21 @@
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table, td, th {
+    text-align: center;
+    height: 50px;
+    border: 1px solid black;
+}
+tr:nth-child(even) {background-color: #f2f2f2;}
+.column1{
+    /*color: #485c79*/
+}
+.result{
+    color: #485c79
+}
+.head{
+    background-color: #4CAF50;
+    color: white;
+}
