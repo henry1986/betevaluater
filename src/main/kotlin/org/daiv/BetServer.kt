@@ -11,7 +11,10 @@
 package org.daiv
 
 import io.ktor.application.call
-import io.ktor.content.*
+import io.ktor.content.default
+import io.ktor.content.files
+import io.ktor.content.resources
+import io.ktor.content.static
 import io.ktor.html.respondHtml
 import io.ktor.routing.get
 import io.ktor.routing.routing
@@ -21,7 +24,6 @@ import kotlinx.coroutines.experimental.launch
 import kotlinx.html.*
 import org.daiv.bet.getResults
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
-import java.io.File
 import java.text.SimpleDateFormat
 
 fun toLong(string: String): Long {
@@ -34,7 +36,7 @@ fun toOtherFormat(string: String): String {
 }
 
 @HtmlTagMarker
-inline fun TR.head(users: List<User>) {
+fun TR.head(users: List<User>) {
     td("head") { +"Anstoßzeit" }
     td("head") { +"Begegnung" }
     td("head") { +"Ergebnis" }
@@ -45,7 +47,7 @@ inline fun TR.head(users: List<User>) {
 }
 
 @HtmlTagMarker
-inline fun TR.subHead(users: List<User>) {
+fun TR.subHead(users: List<User>) {
     td("column1") { }
     td("column1") { }
     td("result") { }
@@ -56,7 +58,7 @@ inline fun TR.subHead(users: List<User>) {
 }
 
 @HtmlTagMarker
-inline fun TR.bets(result: BetData, users: List<User>, bets: List<PointData>) {
+fun TR.bets(result: BetData, users: List<User>, bets: List<PointData>) {
     val match = result.betKey.match
     td("column1") { +toOtherFormat(match.date) }
     td("column1") { +match.toString() }
@@ -77,7 +79,7 @@ inline fun TR.bets(result: BetData, users: List<User>, bets: List<PointData>) {
 }
 
 @HtmlTagMarker
-inline fun TR.footer(users: List<User>, bets: List<PointData>) {
+fun TR.footer(users: List<User>, bets: List<PointData>) {
     td("head") {}
     td("head") {}
     td("head") { +"Zwischenstand: " }
@@ -87,13 +89,13 @@ inline fun TR.footer(users: List<User>, bets: List<PointData>) {
             .filter { it != Points.NONE }
             .map(Points::int)
             .sum()
-        td("head") { +"${user.name}" }
-        td("head") { +"$sum" }
+        td("head") { +user.name }
+        td("head") { +sum.toString() }
     }
 }
 
 @HtmlTagMarker
-inline fun BODY.thisBody(d: BetDatabase, head: String) {
+fun BODY.thisBody(d: BetDatabase, head: String) {
     val users = d.getUsers()
         .filter { it != User.RESULT }
     val (res, bets) = getBets(d.readAll())
@@ -138,15 +140,9 @@ fun main(args: Array<String>) {
                 }
             }
             static("static") {
-                //                staticRootFolder = File("/home/mheinrich/Software/workspace/Private/betevaluater/build/resources/main")
-//                staticRootFolder = File(".")
-//                staticRootFolder =File("css")
                 resources("css")
                 files("css")
                 default("index.html")
-            }
-            get("{...}") {
-                println("here it comes")
             }
         }
     }
