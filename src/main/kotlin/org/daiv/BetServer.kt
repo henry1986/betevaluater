@@ -43,25 +43,22 @@ fun toOtherFormat(string: String): String {
     return simpleDateFormat.format(toDate(string))
 }
 
-@HtmlTagMarker
-fun TR.head(users: List<User>) {
+fun TR.head(users: List<UserPoints>) {
     td("head") { +"Anstoßzeit" }; td("head") { +"Begegnung" }; td("head") { +"Ergebnis" }
-    users.forEach { td("head") { +it.name }; td("head") }
+    users.forEach { td("head") { +it.user.name }; td("head") }
 }
 
-@HtmlTagMarker
-fun TR.subHead(users: List<User>) {
+fun TR.subHead(users: List<UserPoints>) {
     td("column1"); td("column1"); td("result")
     users.forEach { td { +"Tipp" }; td { +"Punkte" } }
 }
 
-@HtmlTagMarker
-fun TR.bets(result: BetData, users: List<User>, bets: List<PointData>) {
+fun TR.bets(result: BetData, users: List<UserPoints>, bets: List<PointData>) {
     val match = result.betKey.match
     td("column1") { +toOtherFormat(match.date) }; td("column1") { +match.toString() }
     td("result") { +result.result.toString() }
     users.forEach { user ->
-        bets.find { bet -> bet.betData.betKey.user == user && match.equalsSameDayAndTeam(bet.betData.betKey.match) }?.let {
+        bets.find { bet -> bet.betData.betKey.user == user.user && match.equalsSameDayAndTeam(bet.betData.betKey.match) }?.let {
             td { +"${it.betData.result} " }
             if (it.betData.betKey.user != User.RESULT) {
                 td { +"${it.points} " }
@@ -70,33 +67,61 @@ fun TR.bets(result: BetData, users: List<User>, bets: List<PointData>) {
     }
 }
 
-@HtmlTagMarker
-fun TR.footer(users: List<User>, bets: List<PointData>) {
-    td("head"); td("head"); td("head") { +"Zwischenstand: " }
+fun TR.footer(users: List<UserPoints>, bets: List<PointData>) {
+    val className = "head footer"
+    td(className); td(className); td(className) { +"Zwischenstand: " }
     users.forEach { user ->
-        val sum = bets.filter { it.betData.betKey.user == user }
-            .map { it.points }
-            .filter { it != Points.NONE }
-            .map(Points::int)
-            .sum()
-        td("head") { +user.name }; td("head") { +sum.toString() }
+        td(className) { +user.user.name }; td(className) { +user.points.toString() }
     }
 }
 
-@HtmlTagMarker
+fun TABLE.bet(users: List<UserPoints>, bets: List<PointData>, results: List<BetData>) {
+    tr { head(users) }
+    tr { subHead(users) }
+    results.forEach { result -> tr { bets(result, users, bets) } }
+    tr { footer(users, bets) }
+}
+
+fun TABLE.ranking(users: List<UserPoints>) {
+    val userPoints = users.sortedWith(compareByDescending { it.points })
+    tr("headRanking") { td { +"Platzierung" };td("playerColumn") { +"Spieler" }; td { +"Punkte" } }
+    (1..userPoints.size).forEach {
+        tr {
+            val userPoint = userPoints[it - 1]
+            td { +it.toString() }
+            td("playerColumn") { +userPoint.user.name }
+            td { +userPoint.points.toString() }
+        }
+    }
+}
+
+data class UserPoints(val user: User, val points: Int)
+
 fun BODY.thisBody(d: BetDatabase, head: String) {
-    val users = d.getUsers()
-        .filter { it != User.RESULT }
     val (res, bets) = getBets(d.readAll())
     val results = res.sortedWith(compareBy { toLong(it.betKey.match.date) })
+    val userPoints = d.getUsers()
+        .filter { it != User.RESULT }
+        .map { user ->
+            val sum = bets.filter { it.betData.betKey.user == user }
+                .map { it.points }
+                .filter { it != Points.NONE }
+                .map(Points::int)
+                .sum()
+            UserPoints(user, sum)
+        }
     h1 { +head }
     p {
-        table {
-            tr { head(users) }
-            tr { subHead(users) }
-            results.forEach { result -> tr { bets(result, users, bets) } }
-            tr { footer(users, bets) }
+        table("tableBet") {
+            bet(userPoints, bets, results)
         }
+    }
+    p("ranking") {
+        br
+        table("tableRanking ranking") {
+            ranking(userPoints)
+        }
+
     }
 }
 

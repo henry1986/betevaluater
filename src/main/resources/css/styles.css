@@ -1,16 +1,28 @@
-table {
+.tableBet {
     border-collapse: collapse;
     width: 100%;
+}
+.tableRanking {
+    border-collapse: collapse;
+}
+
+table.ranking{
+    margin-left:auto;
+    margin-right:auto;
 }
 
 table, td, th {
     text-align: center;
-    height: 50px;
+    height: 40px;
     border: 1px solid black;
+    padding: 10px;
 }
 tr:nth-child(even) {background-color: #f2f2f2;}
 .column1{
     /*color: #485c79*/
+}
+.playerColumn{
+    width: 50%
 }
 .result{
     color: #485c79
@@ -18,4 +30,14 @@ tr:nth-child(even) {background-color: #f2f2f2;}
 .head{
     background-color: #4CAF50;
     color: white;
+}
+.headRanking{
+    background-color: #729fcf;
+    color: white;
+}
+
+.footer{
+  position: sticky;
+  bottom: 0;
+  /*width: 100%*/
 }
